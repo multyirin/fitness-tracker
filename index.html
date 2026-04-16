@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тело мечты — Трекер прогресса</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --red:#c0392b;--red-d:#96281b;--red-l:#fdf0ee;
+  --ink:#1a1a1a;--ink-2:#444;--ink-3:#888;
+  --line:#e5e5e5;--bg:#f7f5f2;--white:#fff;
+  --green:#27ae60;--orange:#e67e22;--blue:#2980b9;--purple:#8e44ad;
+  --radius:6px;--shadow:0 1px 4px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Georgia',serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;position:sticky;top:0;z-index:100;}
+.logo{font-size:15px;font-weight:bold;letter-spacing:.5px;}
+.logo span{color:var(--red);}
+nav{display:flex;gap:2px;}
+nav button{background:none;border:none;color:rgba(255,255,255,.65);font-family:inherit;font-size:13px;padding:8px 14px;border-radius:4px;cursor:pointer;transition:all .15s;}
+nav button:hover{color:#fff;background:rgba(255,255,255,.08);}
+nav button.active{color:#fff;background:var(--red);}
+
+/* LAYOUT */
+main{max-width:1080px;margin:0 auto;padding:28px 20px 60px;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* CARDS */
+.card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow);}
+.card+.card{margin-top:16px;}
+.card-title{font-size:12px;font-weight:bold;letter-spacing:.8px;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px;}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);}
+.kpi-label{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;}
+.kpi-value{font-size:24px;font-weight:bold;color:var(--ink);line-height:1.1;}
+.kpi-value.red{color:var(--red);}
+.kpi-value.green{color:var(--green);}
+.kpi-value.orange{color:var(--orange);}
+.kpi-sub{font-size:11px;color:var(--ink-3);margin-top:3px;}
+
+/* CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:680px){.chart-grid{grid-template-columns:1fr;}}
+.chart-box{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+.chart-box h3{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:12px;}
+.chart-box canvas{max-height:190px;}
+
+/* MACRO BARS */
+.macro-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:600px){.macro-row{grid-template-columns:1fr 1fr;}}
+.macro-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);}
+.macro-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);margin-bottom:6px;}
+.macro-val{font-size:18px;font-weight:bold;color:var(--ink);margin-bottom:4px;}
+.macro-target{font-size:10px;color:var(--ink-3);}
+.prog-bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:5px;}
+.prog-bar-fill{height:100%;border-radius:3px;transition:width .4s;}
+
+/* INSIGHTS */
+.insights{display:flex;flex-direction:column;gap:8px;}
+.insight{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-left:3px solid var(--line);border-radius:0 4px 4px 0;background:var(--white);font-size:13px;color:var(--ink-2);}
+.insight.good{border-color:var(--green);background:#f0fff4;}
+.insight.warn{border-color:var(--orange);background:#fff8f0;}
+.insight.bad{border-color:var(--red);background:var(--red-l);}
+.insight.info{border-color:var(--blue);background:#f0f6ff;}
+.insight-icon{font-size:15px;margin-top:1px;flex-shrink:0;}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field.full{grid-column:1/-1;}
+.field.third{grid-column:span 1;}
+label{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);}
+input[type=text],input[type=number],input[type=date],select,textarea{border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--white);transition:border-color .15s;width:100%;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red);}
+textarea{resize:vertical;min-height:60px;}
+
+/* MACRO GRID (4 columns) */
+.macro-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:600px){.macro-inputs{grid-template-columns:1fr 1fr;}}
+.macro-input-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+.macro-input-card label{display:block;margin-bottom:6px;}
+.macro-input-card input{font-size:15px;}
+
+/* KBJU summary strip */
+.kbju-strip{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0 0;}
+.kbju-chip{font-size:12px;padding:4px 10px;border-radius:12px;font-weight:bold;}
+.kbju-chip.kal{background:#fde9cc;color:#8a4a00;}
+.kbju-chip.prot{background:#d4f5e2;color:#176339;}
+.kbju-chip.fat{background:#fdddd9;color:#8a1a10;}
+.kbju-chip.carb{background:#ddeeff;color:#1a4a8a;}
+.kbju-chip.burn{background:#f0e6ff;color:#5a1a8a;}
+.kbju-chip.alco{background:#fff0f0;color:var(--red);}
+
+/* Toggle / Score */
+.score-row{display:flex;gap:6px;flex-wrap:wrap;}
+.score-btn{width:34px;height:34px;border:2px solid var(--line);border-radius:4px;background:none;font-family:inherit;font-size:13px;font-weight:bold;color:var(--ink-3);cursor:pointer;transition:all .12s;}
+.score-btn:hover{border-color:var(--red);color:var(--red);}
+.score-btn.sel{background:var(--red);border-color:var(--red);color:#fff;}
+.toggle-group{display:flex;gap:6px;flex-wrap:wrap;}
+.toggle-btn{border:2px solid var(--line);border-radius:20px;background:none;font-family:inherit;font-size:12px;font-weight:bold;padding:5px 14px;color:var(--ink-3);cursor:pointer;transition:all .12s;text-transform:uppercase;letter-spacing:.4px;}
+.toggle-btn:hover{border-color:var(--red);color:var(--red);}
+.toggle-btn.sel{background:var(--red);border-color:var(--red);color:#fff;}
+.toggle-btn.sel.green{background:var(--green);border-color:var(--green);}
+.toggle-btn.sel.orange{background:var(--orange);border-color:var(--orange);}
+.toggle-btn.sel.purple{background:var(--purple);border-color:var(--purple);}
+
+/* Alcohol toggle special */
+.alco-toggle{display:flex;align-items:center;gap:10px;}
+.alco-toggle input[type=checkbox]{width:18px;height:18px;accent-color:var(--red);cursor:pointer;}
+.alco-toggle span{font-size:13px;color:var(--ink-2);}
+
+/* Submit */
+.btn-submit{margin-top:20px;background:var(--red);color:#fff;border:none;padding:12px 28px;font-family:inherit;font-size:14px;font-weight:bold;border-radius:var(--radius);cursor:pointer;transition:background .15s;letter-spacing:.3px;}
+.btn-submit:hover{background:var(--red-d);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:11px 22px;border-radius:24px;font-size:13px;font-weight:bold;transition:transform .25s;z-index:9999;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* HISTORY TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead tr{background:var(--ink);color:#fff;}
+thead th{padding:8px 10px;text-align:left;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--line);}
+tbody tr:hover{background:var(--red-l);}
+tbody td{padding:7px 10px;color:var(--ink-2);}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.3px;}
+.pill-green{background:#d4f5e2;color:#176339;}
+.pill-orange{background:#fde9cc;color:#8a4a00;}
+.pill-red{background:#fdddd9;color:#8a1a10;}
+
+/* WEEKLY STATS */
+.week-stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px;}
+.wstat{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+.wstat-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);margin-bottom:3px;}
+.wstat-val{font-size:18px;font-weight:bold;color:var(--ink);}
+.wstat-val.ok{color:var(--green);}
+.wstat-val.warn{color:var(--orange);}
+.wstat-val.bad{color:var(--red);}
+
+.empty{text-align:center;padding:40px 20px;color:var(--ink-3);}
+.section-head{margin-bottom:20px;}
+.section-head h1{font-size:22px;color:var(--ink);margin-bottom:4px;}
+.section-head p{font-size:13px;color:var(--ink-3);}
+.btn-del{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:3px;}
+.btn-del:hover{background:var(--red-l);color:var(--red);}
+.divider{height:1px;background:var(--line);margin:18px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏋 <span>Тело мечты</span></div>
+  <nav>
+    <button class="active" onclick="showPage('dashboard',this)">Дашборд</button>
+    <button onclick="showPage('daily',this)">Чек-ин</button>
+    <button onclick="showPage('weekly',this)">Неделя</button>
+    <button onclick="showPage('history',this)">История</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════════════════════ DASHBOARD ══════════════════════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="section-head">
+    <h1>Дашборд</h1>
+    <p id="dash-subtitle">Прогресс за последние 30 дней</p>
+  </div>
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- Macro avg strip -->
+  <div class="macro-row" id="macro-avg-row"></div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><h3>⚖️ Вес (кг)</h3><canvas id="chart-weight"></canvas></div>
+    <div class="chart-box"><h3>🔥 Баланс калорий (потреблено − потрачено)</h3><canvas id="chart-calories"></canvas></div>
+    <div class="chart-box"><h3>🥩 Белок / Жиры / Углеводы (г/день)</h3><canvas id="chart-macros"></canvas></div>
+    <div class="chart-box"><h3>⭐ Дисциплина + 💧 Вода</h3><canvas id="chart-discipline"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Персональная аналитика</div>
+    <div class="insights" id="insights-box">
+      <div class="insight info"><span class="insight-icon">👋</span><span>Начни с ежедневных чек-инов — через 3–5 дней появятся персональные выводы.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ DAILY CHECK-IN ══════════════════════════ -->
+<div id="page-daily" class="page">
+  <div class="section-head">
+    <h1>Ежедневный чек-ин</h1>
+    <p>Заполняй каждый вечер — ~2 минуты</p>
+  </div>
+  <div class="card">
+    <div class="form-grid">
+
+      <div class="field full">
+        <label>📅 Дата</label>
+        <input type="date" id="d-date">
+      </div>
+
+      <div class="field full">
+        <label>🥗 Следовала ли плану питания?</label>
+        <div class="toggle-group">
+          <button class="toggle-btn sel green" data-group="nutrition" data-val="yes" onclick="pick(this)">✅ Да, полностью</button>
+          <button class="toggle-btn" data-group="nutrition" data-val="partial" onclick="pick(this)">⚡ Частично</button>
+          <button class="toggle-btn" data-group="nutrition" data-val="no" onclick="pick(this)">❌ Нет</button>
+        </div>
+      </div>
+
+      <div class="field full">
+        <label>🏋 Тренировка сегодня?</label>
+        <div class="toggle-group">
+          <button class="toggle-btn sel green" data-group="workout" data-val="A" onclick="pick(this)">День A — Спина/Руки</button>
+          <button class="toggle-btn" data-group="workout" data-val="B" onclick="pick(this)">День B — Ноги</button>
+          <button class="toggle-btn" data-group="workout" data-val="C" onclick="pick(this)">День C — Кардио</button>
+          <button class="toggle-btn" data-group="workout" data-val="D" onclick="pick(this)">День D — Все группы</button>
+          <button class="toggle-btn" data-group="workout" data-val="rest" onclick="pick(this)">🚶 Активный отдых</button>
+          <button class="toggle-btn" data-group="workout" data-val="none" onclick="pick(this)">— Пропуск</button>
+        </div>
+      </div>
+
+      <!-- ── КБЖУ SECTION ── -->
+      <div class="field full">
+        <div class="divider" style="margin:4px 0 14px;"></div>
+        <label style="font-size:13px;margin-bottom:12px;">🍽️ КБЖУ за день <span style="font-weight:normal;color:var(--ink-3);font-size:10px;text-transform:none;letter-spacing:0">(цель: 1750 ккал | Б 110г | Ж 55г | У 205г)</span></label>
+        <div class="macro-inputs">
+          <div class="macro-input-card">
+            <label>🔥 Калории</label>
+            <input type="number" id="d-kcal" min="0" max="5000" step="10" placeholder="1750">
+            <div class="kbju-strip" id="kcal-bar-wrap" style="padding:6px 0 0;"></div>
+          </div>
+          <div class="macro-input-card">
+            <label>🥩 Белок (г)</label>
+            <input type="number" id="d-prot" min="0" max="300" step="1" placeholder="110">
+          </div>
+          <div class="macro-input-card">
+            <label>🧈 Жиры (г)</label>
+            <input type="number" id="d-fat" min="0" max="200" step="1" placeholder="55">
+          </div>
+          <div class="macro-input-card">
+            <label>🌾 Углеводы (г)</label>
+            <input type="number" id="d-carb" min="0" max="500" step="1" placeholder="205">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>⚡ Потрачено калорий (тренировка)</label>
+        <input type="number" id="d-burned" min="0" max="2000" step="10" placeholder="300">
+        <span style="font-size:10px;color:var(--ink-3);margin-top:3px">Приблизительно: силовая 200–350 ккал, кардио 300–500 ккал</span>
+      </div>
+
+      <div class="field">
+        <label>🍷 Алкоголь сегодня?</label>
+        <div class="alco-toggle" style="margin-top:8px;">
+          <input type="checkbox" id="d-alcohol">
+          <span>Да, употребляла алкоголь</span>
+        </div>
+        <span style="font-size:10px;color:var(--ink-3);margin-top:6px">При алкоголе: −80–100г углеводов из меню в этот день</span>
+      </div>
+
+      <div class="divider full" style="grid-column:1/-1;"></div>
+
+      <div class="field">
+        <label>😴 Часов сна</label>
+        <input type="number" id="d-sleep" min="3" max="12" step="0.5" placeholder="7.5">
+      </div>
+
+      <div class="field">
+        <label>💧 Вода (мл)</label>
+        <input type="number" id="d-water" min="0" max="5000" step="100" placeholder="1800">
+      </div>
+
+      <div class="field full">
+        <label>⭐ Дисциплина сегодня (1–10)</label>
+        <div class="score-row" id="score-row">
+          <button class="score-btn" data-val="1" onclick="pickScore(this)">1</button>
+          <button class="score-btn" data-val="2" onclick="pickScore(this)">2</button>
+          <button class="score-btn" data-val="3" onclick="pickScore(this)">3</button>
+          <button class="score-btn" data-val="4" onclick="pickScore(this)">4</button>
+          <button class="score-btn" data-val="5" onclick="pickScore(this)">5</button>
+          <button class="score-btn sel" data-val="6" onclick="pickScore(this)">6</button>
+          <button class="score-btn" data-val="7" onclick="pickScore(this)">7</button>
+          <button class="score-btn" data-val="8" onclick="pickScore(this)">8</button>
+          <button class="score-btn" data-val="9" onclick="pickScore(this)">9</button>
+          <button class="score-btn" data-val="10" onclick="pickScore(this)">10</button>
+        </div>
+      </div>
+
+      <div class="field full">
+        <label>🏆 Лучшее за сегодня</label>
+        <textarea id="d-win" placeholder="Например: выпила 2 л воды, дошла до 12k шагов"></textarea>
+      </div>
+
+      <div class="field full">
+        <label>⚡ Что улучшить завтра?</label>
+        <textarea id="d-improve" placeholder="Например: лечь раньше, не пропустить перекус"></textarea>
+      </div>
+
+    </div>
+    <button class="btn-submit" onclick="saveDailyEntry()">Сохранить чек-ин</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ WEEKLY REVIEW ══════════════════════════ -->
+<div id="page-weekly" class="page">
+  <div class="section-head">
+    <h1>Недельный итог</h1>
+    <p>Заполняй в воскресенье — замеры и итоги недели</p>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">📈 Авто-статистика за последние 7 дней</div>
+    <div class="week-stat-row" id="auto-stats"></div>
+    <!-- КБЖУ weekly average strip -->
+    <div id="weekly-kbju-strip" style="display:none;margin-top:8px;">
+      <div class="card-title" style="margin-bottom:8px;">Среднее КБЖУ / день</div>
+      <div class="macro-row" id="weekly-macro-bars" style="margin-bottom:0;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="form-grid">
+      <div class="field full">
+        <label>📅 Дата (воскресенье)</label>
+        <input type="date" id="w-date">
+      </div>
+      <div class="field">
+        <label>⚖️ Вес утром натощак (кг)</label>
+        <input type="number" id="w-weight" min="40" max="120" step="0.1" placeholder="57.0">
+      </div>
+      <div class="field">
+        <label>📏 Обхват талии (см)</label>
+        <input type="number" id="w-waist" min="40" max="120" step="0.5" placeholder="69">
+      </div>
+      <div class="field">
+        <label>📏 Обхват бёдер (см)</label>
+        <input type="number" id="w-hips" min="60" max="140" step="0.5" placeholder="94">
+      </div>
+      <div class="field">
+        <label>📏 Обхват груди (см)</label>
+        <input type="number" id="w-chest" min="60" max="130" step="0.5" placeholder="86">
+      </div>
+      <div class="field full">
+        <label>💬 Главное ощущение недели</label>
+        <textarea id="w-feeling" placeholder="Например: чувствую себя лучше, одежда стала свободнее..."></textarea>
+      </div>
+    </div>
+    <button class="btn-submit" onclick="saveWeeklyEntry()">Сохранить итог недели</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ HISTORY ══════════════════════════ -->
+<div id="page-history" class="page">
+  <div class="section-head">
+    <h1>История</h1>
+    <p>Все записи — ежедневные и недельные</p>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">📋 Ежедневные чек-ины</div>
+    <div class="table-wrap" id="daily-table-wrap">
+      <div class="empty"><div style="font-size:32px">📅</div><p>Ещё нет записей. Заполни первый чек-ин!</p></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📊 Недельные замеры</div>
+    <div class="table-wrap" id="weekly-table-wrap">
+      <div class="empty"><div style="font-size:32px">📊</div><p>Ещё нет недельных итогов.</p></div>
+    </div>
+  </div>
+  <div style="margin-top:16px;text-align:right;">
+    <button onclick="exportData()" style="background:none;border:1px solid var(--line);border-radius:var(--radius);padding:8px 16px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--ink-3);">⬇ Экспорт JSON</button>
+    <button onclick="importDataClick()" style="background:none;border:1px solid var(--line);border-radius:var(--radius);padding:8px 16px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--ink-3);margin-left:8px;">⬆ Импорт JSON</button>
+    <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)">
+  </div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════ TARGETS ═══════════════════
+const T = { kcal:1750, prot:110, fat:55, carb:205, sleep:8, water:1800 };
+
+// ═══════════════════ DATA LAYER ═══════════════════
+const DB_D='ftd_daily', DB_W='ftd_weekly';
+const loadD=()=>{try{return JSON.parse(localStorage.getItem(DB_D)||'[]');}catch{return[];}};
+const loadW=()=>{try{return JSON.parse(localStorage.getItem(DB_W)||'[]');}catch{return[];}};
+const saveD=d=>localStorage.setItem(DB_D,JSON.stringify(d));
+const saveW=d=>localStorage.setItem(DB_W,JSON.stringify(d));
+
+// ═══════════════════ STATE ═══════════════════
+let sel={nutrition:'yes',workout:'A',score:6};
+
+function pick(btn){
+  const g=btn.dataset.group;
+  document.querySelectorAll(`[data-group="${g}"]`).forEach(b=>{b.classList.remove('sel','green','orange','purple');});
+  btn.classList.add('sel');
+  const v=btn.dataset.val;
+  if(['yes','A','B','C','D'].includes(v)) btn.classList.add('green');
+  else if(['partial','rest'].includes(v)) btn.classList.add('orange');
+  sel[g]=v;
+}
+function pickScore(btn){
+  document.querySelectorAll('.score-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  sel.score=+btn.dataset.val;
+}
+
+// ═══════════════════ NAV ═══════════════════
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id==='dashboard') renderDashboard();
+  if(id==='history')   renderHistory();
+  if(id==='weekly')    renderAutoStats();
+}
+
+// ═══════════════════ TOAST ═══════════════════
+function toast(msg,ms=2400){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),ms);
+}
+
+// ═══════════════════ SAVE DAILY ═══════════════════
+function saveDailyEntry(){
+  const date=document.getElementById('d-date').value;
+  if(!date){toast('⚠️ Укажи дату!');return;}
+  const entry={
+    date,
+    nutrition: sel.nutrition,
+    workout:   sel.workout,
+    kcal:      num('d-kcal'),
+    prot:      num('d-prot'),
+    fat:       num('d-fat'),
+    carb:      num('d-carb'),
+    burned:    num('d-burned'),
+    alcohol:   document.getElementById('d-alcohol').checked,
+    sleep:     num('d-sleep'),
+    water:     num('d-water'),
+    score:     sel.score,
+    win:       document.getElementById('d-win').value.trim(),
+    improve:   document.getElementById('d-improve').value.trim(),
+    ts:        Date.now(),
+  };
+  const data=loadD();
+  const idx=data.findIndex(e=>e.date===date);
+  if(idx>=0) data[idx]=entry; else data.push(entry);
+  data.sort((a,b)=>a.date.localeCompare(b.date));
+  saveD(data);
+  toast('✅ Чек-ин сохранён!');
+  document.getElementById('d-win').value='';
+  document.getElementById('d-improve').value='';
+}
+
+function num(id){const v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;}
+
+// ═══════════════════ SAVE WEEKLY ═══════════════════
+function saveWeeklyEntry(){
+  const date=document.getElementById('w-date').value;
+  if(!date){toast('⚠️ Укажи дату!');return;}
+  const wt=parseFloat(document.getElementById('w-weight').value);
+  if(!wt){toast('⚠️ Укажи вес!');return;}
+  const entry={
+    date,weight:wt,
+    waist: parseFloat(document.getElementById('w-waist').value)||null,
+    hips:  parseFloat(document.getElementById('w-hips').value)||null,
+    chest: parseFloat(document.getElementById('w-chest').value)||null,
+    feeling: document.getElementById('w-feeling').value.trim(),
+    ts: Date.now(),
+  };
+  const data=loadW();
+  const idx=data.findIndex(e=>e.date===date);
+  if(idx>=0) data[idx]=entry; else data.push(entry);
+  data.sort((a,b)=>a.date.localeCompare(b.date));
+  saveW(data);
+  toast('✅ Итог недели сохранён!');
+  document.getElementById('w-feeling').value='';
+}
+
+// ═══════════════════ AUTO STATS (weekly page) ═══════════════════
+function renderAutoStats(){
+  const daily=loadD();
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-6);
+  const week=daily.filter(e=>e.date>=cutoff.toISOString().slice(0,10));
+  const workouts=week.filter(e=>['A','B','C','D'].includes(e.workout)).length;
+  const nutritOk=week.filter(e=>e.nutrition==='yes').length;
+  const alcoDay=week.filter(e=>e.alcohol).length;
+  const avgScore=week.length?(week.reduce((s,e)=>s+(e.score||0),0)/week.length).toFixed(1):'—';
+  const sleepW=week.filter(e=>e.sleep);
+  const avgSleep=sleepW.length?(sleepW.reduce((s,e)=>s+e.sleep,0)/sleepW.length).toFixed(1):'—';
+  const waterW=week.filter(e=>e.water);
+  const avgWater=waterW.length?Math.round(waterW.reduce((s,e)=>s+e.water,0)/waterW.length):'—';
+  // caloric balance
+  const kcalW=week.filter(e=>e.kcal);
+  const avgKcal=kcalW.length?Math.round(kcalW.reduce((s,e)=>s+e.kcal,0)/kcalW.length):'—';
+  const burnW=week.filter(e=>e.burned);
+  const avgBurn=burnW.length?Math.round(burnW.reduce((s,e)=>s+e.burned,0)/burnW.length):'—';
+  const deficit=(avgKcal!=='—'&&avgBurn!=='—')?(avgKcal-avgBurn):'—';
+
+  const sc=v=>v==='—'?'':v<0?'ok':v>0?'bad':'';
+
+  document.getElementById('auto-stats').innerHTML=`
+    <div class="wstat"><div class="wstat-label">Тренировок</div><div class="wstat-val ${workouts>=3?'ok':workouts>=2?'warn':'bad'}">${workouts}<span style="font-size:11px;color:var(--ink-3)"> /7д</span></div></div>
+    <div class="wstat"><div class="wstat-label">Питание ОК</div><div class="wstat-val ${nutritOk>=5?'ok':nutritOk>=3?'warn':'bad'}">${nutritOk}<span style="font-size:11px;color:var(--ink-3)"> дней</span></div></div>
+    <div class="wstat"><div class="wstat-label">Алкоголь</div><div class="wstat-val ${alcoDay<=2?'ok':alcoDay<=3?'warn':'bad'}">${alcoDay}<span style="font-size:11px;color:var(--ink-3)"> дней</span></div></div>
+    <div class="wstat"><div class="wstat-label">Дисциплина</div><div class="wstat-val ${+avgScore>=7?'ok':+avgScore>=5?'warn':'bad'}">${avgScore}</div></div>
+    <div class="wstat"><div class="wstat-label">Ср. сон</div><div class="wstat-val ${+avgSleep>=7?'ok':+avgSleep>=6?'warn':'bad'}">${avgSleep}<span style="font-size:11px;color:var(--ink-3)"> ч</span></div></div>
+    <div class="wstat"><div class="wstat-label">Ср. вода</div><div class="wstat-val ${avgWater>=1600?'ok':avgWater>=1200?'warn':'bad'}">${avgWater}<span style="font-size:11px;color:var(--ink-3)"> мл</span></div></div>
+    <div class="wstat"><div class="wstat-label">Ср. ккал</div><div class="wstat-val ${avgKcal!=='—'&&avgKcal<=1850&&avgKcal>=1400?'ok':avgKcal!=='—'?'warn':''}">${avgKcal}</div></div>
+    <div class="wstat"><div class="wstat-label">Дефицит ккал</div><div class="wstat-val ${deficit!=='—'&&deficit<-200&&deficit>-600?'ok':deficit!=='—'&&deficit>0?'bad':deficit!=='—'?'warn':''}">${deficit!=='—'?deficit:deficit}</div></div>
+  `;
+
+  // КБЖУ average bars
+  const protW=week.filter(e=>e.prot),fatW=week.filter(e=>e.fat),carbW=week.filter(e=>e.carb);
+  if(kcalW.length){
+    document.getElementById('weekly-kbju-strip').style.display='block';
+    const avgProt=protW.length?Math.round(protW.reduce((s,e)=>s+e.prot,0)/protW.length):null;
+    const avgFat=fatW.length?Math.round(fatW.reduce((s,e)=>s+e.fat,0)/fatW.length):null;
+    const avgCarb=carbW.length?Math.round(carbW.reduce((s,e)=>s+e.carb,0)/carbW.length):null;
+    document.getElementById('weekly-macro-bars').innerHTML=macroBars(avgKcal,avgProt,avgFat,avgCarb);
+  } else {
+    document.getElementById('weekly-kbju-strip').style.display='none';
+  }
+}
+
+function macroBars(kcal,prot,fat,carb){
+  const bar=(val,target,color)=>{
+    if(val===null||val===undefined||val==='—') return '';
+    const pct=Math.min(100,Math.round(val/target*100));
+    const c=pct>110?'#e67e22':pct>=80?color:'#e74c3c';
+    return `<div class="prog-bar"><div class="prog-bar-fill" style="width:${pct}%;background:${c};"></div></div><div style="font-size:10px;color:var(--ink-3);margin-top:2px">${pct}% от цели</div>`;
+  };
+  return `
+    <div class="macro-card"><div class="macro-label">🔥 Калории</div><div class="macro-val">${kcal??'—'}</div><div class="macro-target">цель: ${T.kcal}</div>${bar(kcal,T.kcal,'#27ae60')}</div>
+    <div class="macro-card"><div class="macro-label">🥩 Белок</div><div class="macro-val">${prot??'—'} г</div><div class="macro-target">цель: ${T.prot} г</div>${bar(prot,T.prot,'#27ae60')}</div>
+    <div class="macro-card"><div class="macro-label">🧈 Жиры</div><div class="macro-val">${fat??'—'} г</div><div class="macro-target">цель: ${T.fat} г</div>${bar(fat,T.fat,'#2980b9')}</div>
+    <div class="macro-card"><div class="macro-label">🌾 Углеводы</div><div class="macro-val">${carb??'—'} г</div><div class="macro-target">цель: ${T.carb} г</div>${bar(carb,T.carb,'#8e44ad')}</div>
+  `;
+}
+
+// ═══════════════════ DASHBOARD ═══════════════════
+let charts={};
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function mkChart(id,type,labels,datasets,opts={}){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  charts[id]=new Chart(ctx,{
+    type,data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:opts.legend??false,labels:{font:{size:10}}}},
+      scales:{
+        x:{grid:{color:'#f0f0f0'},ticks:{font:{size:9},maxTicksLimit:10}},
+        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:9}},...(opts.yScale||{})},
+      },
+      elements:{point:{radius:3,hoverRadius:5}},
+      ...(opts.extra||{}),
+    }
+  });
+}
+
+function renderDashboard(){
+  const daily=loadD(), weekly=loadW();
+  const last7=daily.slice(-7);
+  const d30=daily.slice(-30);
+  const labels30=d30.map(e=>e.date.slice(5));
+
+  // ── KPIs ──
+  const workouts7=last7.filter(e=>['A','B','C','D'].includes(e.workout)).length;
+  const alco7=last7.filter(e=>e.alcohol).length;
+  const avgScore=last7.length?(last7.reduce((s,e)=>s+(e.score||0),0)/last7.length).toFixed(1):'—';
+  const slW=last7.filter(e=>e.sleep);
+  const avgSleep=slW.length?(slW.reduce((s,e)=>s+e.sleep,0)/slW.length).toFixed(1):'—';
+  const kcW=last7.filter(e=>e.kcal);
+  const avgKcal=kcW.length?Math.round(kcW.reduce((s,e)=>s+e.kcal,0)/kcW.length):'—';
+  const lastWeight=weekly.length?weekly[weekly.length-1].weight:'—';
+  const weightDelta=weekly.length>=2?((weekly[weekly.length-1].weight-weekly[0].weight).toFixed(1)):null;
+  let wdTxt='';
+  if(weightDelta!==null){const d=+weightDelta;wdTxt=d<0?`↓ ${Math.abs(d)} кг`:d>0?`↑ ${Math.abs(d)} кг`:'= стабильно';}
+
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi"><div class="kpi-label">Текущий вес</div><div class="kpi-value ${+weightDelta<0?'green':+weightDelta>0?'orange':'red'}">${lastWeight}${lastWeight!=='—'?' кг':''}</div><div class="kpi-sub">${wdTxt||'Добавь замер'}</div></div>
+    <div class="kpi"><div class="kpi-label">Тренировок (7д)</div><div class="kpi-value ${workouts7>=3?'green':workouts7>=2?'orange':'red'}">${workouts7}</div><div class="kpi-sub">из 4 возможных</div></div>
+    <div class="kpi"><div class="kpi-label">Дисциплина</div><div class="kpi-value ${+avgScore>=7?'green':+avgScore>=5?'orange':'red'}">${avgScore}</div><div class="kpi-sub">средняя за 7 дней</div></div>
+    <div class="kpi"><div class="kpi-label">Ср. ккал/день</div><div class="kpi-value ${avgKcal!=='—'&&avgKcal<=1850&&avgKcal>=1400?'green':avgKcal!=='—'?'orange':''}">${avgKcal}</div><div class="kpi-sub">цель: 1750</div></div>
+    <div class="kpi"><div class="kpi-label">Алкоголь (7д)</div><div class="kpi-value ${alco7<=2?'green':alco7<=3?'orange':'red'}">${alco7}</div><div class="kpi-sub">дней</div></div>
+    <div class="kpi"><div class="kpi-label">Сон (ср.)</div><div class="kpi-value ${+avgSleep>=7?'green':+avgSleep>=6?'orange':'red'}">${avgSleep}${avgSleep!=='—'?' ч':''}</div><div class="kpi-sub">норма 7–9 ч</div></div>
+  `;
+
+  // ── MACRO CARDS ──
+  const kcalAll=d30.filter(e=>e.kcal);
+  const protAll=d30.filter(e=>e.prot);
+  const fatAll=d30.filter(e=>e.fat);
+  const carbAll=d30.filter(e=>e.carb);
+  if(kcalAll.length){
+    const aK=Math.round(kcalAll.reduce((s,e)=>s+e.kcal,0)/kcalAll.length);
+    const aP=protAll.length?Math.round(protAll.reduce((s,e)=>s+e.prot,0)/protAll.length):null;
+    const aF=fatAll.length?Math.round(fatAll.reduce((s,e)=>s+e.fat,0)/fatAll.length):null;
+    const aC=carbAll.length?Math.round(carbAll.reduce((s,e)=>s+e.carb,0)/carbAll.length):null;
+    document.getElementById('macro-avg-row').innerHTML=macroBars(aK,aP,aF,aC);
+  } else {
+    document.getElementById('macro-avg-row').innerHTML='';
+  }
+
+  // ── CHART: Weight ──
+  mkChart('chart-weight','line',weekly.map(e=>e.date.slice(5)),[{
+    data:weekly.map(e=>e.weight),borderColor:'#c0392b',
+    backgroundColor:'rgba(192,57,43,.08)',tension:.3,fill:true,
+  }],{yScale:{suggestedMin:Math.min(...(weekly.map(e=>e.weight)),48)-0.5,suggestedMax:Math.max(...(weekly.map(e=>e.weight)),58)+0.5}});
+
+  // ── CHART: Calorie balance ──
+  const calBal=d30.map(e=>{
+    if(e.kcal===null&&e.burned===null) return null;
+    return (e.kcal||0)-(e.burned||0);
+  });
+  mkChart('chart-calories','bar',labels30,[{
+    data:calBal,
+    backgroundColor:calBal.map(v=>v===null?'transparent':v<=1850&&v>=1200?'rgba(39,174,96,.55)':'rgba(230,126,34,.55)'),
+    borderRadius:3,
+  }],{yScale:{suggestedMin:800,suggestedMax:2400}});
+
+  // ── CHART: Macros stacked ──
+  mkChart('chart-macros','line',labels30,[
+    {label:'Белок',data:d30.map(e=>e.prot),borderColor:'#27ae60',backgroundColor:'transparent',tension:.3},
+    {label:'Жиры',data:d30.map(e=>e.fat),borderColor:'#c0392b',backgroundColor:'transparent',tension:.3},
+    {label:'Углеводы',data:d30.map(e=>e.carb),borderColor:'#8e44ad',backgroundColor:'transparent',tension:.3},
+  ],{legend:true});
+
+  // ── CHART: Discipline + Water combined ──
+  mkChart('chart-discipline','line',labels30,[
+    {label:'Дисциплина',data:d30.map(e=>e.score),borderColor:'#e67e22',backgroundColor:'transparent',tension:.3,yAxisID:'y'},
+    {label:'Вода (÷200)',data:d30.map(e=>e.water?+(e.water/200).toFixed(1):null),borderColor:'#2980b9',backgroundColor:'rgba(41,128,185,.08)',tension:.3,yAxisID:'y',fill:true},
+  ],{legend:true,extra:{scales:{y:{min:0,max:12,ticks:{font:{size:9}},grid:{color:'#f0f0f0'}},x:{grid:{color:'#f0f0f0'},ticks:{font:{size:9},maxTicksLimit:10}}}}});
+
+  renderInsights(daily, weekly);
+}
+
+// ═══════════════════ INSIGHTS ═══════════════════
+function renderInsights(daily,weekly){
+  const box=document.getElementById('insights-box');
+  if(!daily.length){
+    box.innerHTML=`<div class="insight info"><span class="insight-icon">👋</span><span>Начни с ежедневных чек-инов — через 3–5 дней появятся персональные выводы.</span></div>`;
+    return;
+  }
+  const last7=daily.slice(-7);
+  const last14=daily.slice(-14);
+  const ins=[];
+
+  // Weight trend
+  if(weekly.length>=2){
+    const d=(weekly[weekly.length-1].weight-weekly[weekly.length-2].weight).toFixed(1);
+    if(+d<-0.2) ins.push({t:'good',i:'📉',m:`Вес снизился на ${Math.abs(d)} кг за последнюю неделю. Отлично!`});
+    else if(+d>0.3) ins.push({t:'warn',i:'📈',m:`Вес вырос на ${d} кг за неделю. Проверь питание и уровень стресса.`});
+    else ins.push({t:'info',i:'⚖️',m:`Вес стабилен. При работе на рельеф это норма — смотри на замеры тела.`});
+  }
+
+  // Goal
+  if(weekly.length>=1){
+    const cw=weekly[weekly.length-1].weight,goal=51,left=(cw-goal).toFixed(1);
+    if(cw>goal) ins.push({t:'info',i:'🎯',m:`До цели 51 кг осталось ${left} кг ≈ ${Math.ceil(left/0.35)} недель при дефиците 350 ккал/день.`});
+    else ins.push({t:'good',i:'🏆',m:`Цель 51 кг достигнута! Фокус на поддержание и рельеф.`});
+  }
+
+  // Calories
+  const kcW=last7.filter(e=>e.kcal);
+  if(kcW.length>=3){
+    const avg=Math.round(kcW.reduce((s,e)=>s+e.kcal,0)/kcW.length);
+    if(avg>1950) ins.push({t:'bad',i:'🍕',m:`Средние калории ${avg} ккал — выше цели 1750. Превышение ~${avg-1750} ккал/день замедляет жиросжигание.`});
+    else if(avg<1400) ins.push({t:'warn',i:'⚡',m:`Средние калории ${avg} ккал — слишком мало! Такой дефицит разрушает мышцы и замедляет метаболизм.`});
+    else ins.push({t:'good',i:'🎯',m:`Среднее потребление ${avg} ккал/день — отличный дефицит для жиросжигания без потери мышц!`});
+  }
+
+  // Protein
+  const prW=last7.filter(e=>e.prot);
+  if(prW.length>=3){
+    const avg=Math.round(prW.reduce((s,e)=>s+e.prot,0)/prW.length);
+    if(avg<90) ins.push({t:'bad',i:'🥩',m:`Белок в среднем ${avg} г/день — ниже нормы 110 г. При дефиците это приводит к потере мышц. Добавь творог, яйца или курицу.`});
+    else ins.push({t:'good',i:'💪',m:`Белок ${avg} г/день — отлично! Мышцы защищены при дефиците.`});
+  }
+
+  // Caloric deficit
+  const brnW=last7.filter(e=>e.burned&&e.kcal);
+  if(brnW.length>=2){
+    const avgDef=Math.round(brnW.reduce((s,e)=>s+(e.kcal-e.burned),0)/brnW.length);
+    if(avgDef<1200) ins.push({t:'warn',i:'⚡',m:`Чистое потребление с учётом тренировок ~${avgDef} ккал — возможно слишком мало. Проверь, что данные о сожжённых ккал корректны.`});
+    else ins.push({t:'info',i:'🔥',m:`Чистый баланс ~${avgDef} ккал/день (потреблено − потрачено на тренировке).`});
+  }
+
+  // Alcohol
+  const alco7=last7.filter(e=>e.alcohol).length;
+  if(alco7>3) ins.push({t:'bad',i:'🍷',m:`${alco7} дней с алкоголем за неделю — это тормозит жиросжигание. Алкоголь останавливает сжигание жира на 24–36 ч. Старайся не более 2 дней/нед.`});
+  else if(alco7===0&&daily.length>=5) ins.push({t:'good',i:'🍷',m:`Отличная неделя — без алкоголя! Это ускоряет результат.`});
+  else if(alco7<=2&&alco7>0) ins.push({t:'info',i:'🍷',m:`${alco7} дня с алкоголем — в рамках плана. Не забывай компенсировать: убирай углеводы на ужин в эти дни.`});
+
+  // Workouts
+  const work7=last7.filter(e=>['A','B','C','D'].includes(e.workout)).length;
+  if(work7>=3) ins.push({t:'good',i:'💪',m:`${work7} тренировки за 7 дней — отличная неделя!`});
+  else if(work7===2) ins.push({t:'warn',i:'🏋',m:`Только 2 тренировки за 7 дней. Постарайся добавить хотя бы одно кардио.`});
+  else if(work7<=1) ins.push({t:'bad',i:'⚠️',m:`${work7} тренировка за неделю — этого недостаточно. Запланируй 3 сессии на следующую неделю.`});
+
+  // Sleep
+  const slW=last7.filter(e=>e.sleep);
+  if(slW.length>=3){
+    const avg=+(slW.reduce((s,e)=>s+e.sleep,0)/slW.length).toFixed(1);
+    if(avg<6.5) ins.push({t:'bad',i:'😴',m:`Сон ${avg} ч в среднем — критически мало. Недосып повышает кортизол и тягу к сладкому на 30%.`});
+    else if(avg>=7.5) ins.push({t:'good',i:'😴',m:`Отличный сон — ${avg} ч в среднем! Это напрямую влияет на жиросжигание.`});
+    else ins.push({t:'warn',i:'😴',m:`Сон ${avg} ч — близко к норме, но старайся спать 7.5+ ч.`});
+  }
+
+  // Nutrition
+  const nOk=last7.filter(e=>e.nutrition==='yes').length;
+  const nNo=last7.filter(e=>e.nutrition==='no').length;
+  if(nOk>=5) ins.push({t:'good',i:'🥗',m:`Питание по плану ${nOk} из 7 дней — ключевой фактор результата!`});
+  else if(nNo>=3) ins.push({t:'bad',i:'🍕',m:`${nNo} дня без плана питания — это замедляет прогресс. Попробуй готовить еду заранее в воскресенье.`});
+
+  // Discipline trend
+  const avgNow=last7.reduce((s,e)=>s+(e.score||0),0)/(last7.length||1);
+  if(last14.length>=10){
+    const prev=last14.slice(0,7).reduce((s,e)=>s+(e.score||0),0)/7;
+    const diff=+(avgNow-prev).toFixed(1);
+    if(diff>=1) ins.push({t:'good',i:'⭐',m:`Дисциплина выросла на ${diff} балла за неделю. Позитивная динамика!`});
+    else if(diff<=-1.5) ins.push({t:'warn',i:'⭐',m:`Дисциплина упала на ${Math.abs(diff)} балла. Что случилось? Пересмотри расписание.`});
+  }
+
+  if(!ins.length) ins.push({t:'info',i:'📊',m:`Заполни ещё несколько дней чек-инов — появятся точные персональные выводы.`});
+
+  box.innerHTML=ins.map(i=>`<div class="insight ${i.t}"><span class="insight-icon">${i.i}</span><span>${i.m}</span></div>`).join('');
+}
+
+// ═══════════════════ HISTORY ═══════════════════
+const nLabel={yes:'Да ✅',partial:'Частично ⚡',no:'Нет ❌'};
+const nClass={yes:'pill-green',partial:'pill-orange',no:'pill-red'};
+const wLabel={A:'A—Спина',B:'B—Ноги',C:'C—Кардио',D:'D—Full',rest:'Отдых 🚶',none:'Пропуск'};
+
+function renderHistory(){
+  const daily=loadD(), weekly=loadW();
+  const dtw=document.getElementById('daily-table-wrap');
+  if(!daily.length){
+    dtw.innerHTML='<div class="empty"><div style="font-size:32px">📅</div><p>Ещё нет записей!</p></div>';
+  } else {
+    const rows=[...daily].reverse().map(e=>`
+      <tr>
+        <td>${e.date}</td>
+        <td><span class="pill ${nClass[e.nutrition]||''}">${nLabel[e.nutrition]||e.nutrition}</span></td>
+        <td style="white-space:nowrap">${wLabel[e.workout]||e.workout}</td>
+        <td style="text-align:right">${e.kcal??'—'}</td>
+        <td style="text-align:right">${e.prot??'—'}</td>
+        <td style="text-align:right">${e.fat??'—'}</td>
+        <td style="text-align:right">${e.carb??'—'}</td>
+        <td style="text-align:right">${e.burned??'—'}</td>
+        <td>${e.alcohol?'<span class="pill pill-red">🍷 Да</span>':''}</td>
+        <td>${e.sleep??'—'}</td>
+        <td style="text-align:right">${e.water??'—'}</td>
+        <td><strong style="color:${e.score>=7?'var(--green)':e.score>=5?'var(--orange)':'var(--red)'}">${e.score}/10</strong></td>
+        <td><button class="btn-del" onclick="deleteD('${e.date}')">✕</button></td>
+      </tr>`).join('');
+    dtw.innerHTML=`<table>
+      <thead><tr><th>Дата</th><th>Питание</th><th>Тренировка</th><th>Ккал</th><th>Б г</th><th>Ж г</th><th>У г</th><th>Сожж.</th><th>Алко</th><th>Сон ч</th><th>Вода мл</th><th>Score</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  }
+
+  const wtw=document.getElementById('weekly-table-wrap');
+  if(!weekly.length){
+    wtw.innerHTML='<div class="empty"><div style="font-size:32px">📊</div><p>Ещё нет недельных итогов.</p></div>';
+  } else {
+    const wrows=[...weekly].reverse().map((e,i,arr)=>{
+      const prev=arr[arr.length-1-i+1];
+      const dw=prev?(e.weight-prev.weight).toFixed(1):null;
+      const dStr=dw?`<span style="font-size:10px;color:${+dw<0?'var(--green)':'var(--red)'}">${+dw<0?dw:'+'+dw}</span>`:'';
+      return `<tr>
+        <td>${e.date}</td>
+        <td><strong>${e.weight}</strong> кг ${dStr}</td>
+        <td>${e.waist??'—'} ${e.waist?'см':''}</td>
+        <td>${e.hips??'—'} ${e.hips?'см':''}</td>
+        <td>${e.chest??'—'} ${e.chest?'см':''}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3)">${e.feeling||''}</td>
+        <td><button class="btn-del" onclick="deleteW('${e.date}')">✕</button></td>
+      </tr>`;}).join('');
+    wtw.innerHTML=`<table>
+      <thead><tr><th>Дата</th><th>Вес</th><th>Талия</th><th>Бёдра</th><th>Грудь</th><th>Ощущение</th><th></th></tr></thead>
+      <tbody>${wrows}</tbody></table>`;
+  }
+}
+
+function deleteD(date){if(!confirm(`Удалить запись от ${date}?`))return;saveD(loadD().filter(e=>e.date!==date));renderHistory();toast('Запись удалена');}
+function deleteW(date){if(!confirm(`Удалить итог от ${date}?`))return;saveW(loadW().filter(e=>e.date!==date));renderHistory();toast('Запись удалена');}
+
+// ═══════════════════ EXPORT / IMPORT ═══════════════════
+function exportData(){
+  const blob=new Blob([JSON.stringify({daily:loadD(),weekly:loadW(),exported:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`fitness-${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('📥 Данные экспортированы');
+}
+function importDataClick(){document.getElementById('import-file').click();}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.daily) saveD(d.daily);if(d.weekly) saveW(d.weekly);
+      toast('✅ Данные импортированы!');renderHistory();renderDashboard();
+    }catch{toast('❌ Ошибка импорта');}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+// ═══════════════════ INIT ═══════════════════
+(function(){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('d-date').value=today;
+  document.getElementById('w-date').value=today;
+  renderDashboard();
+})();
+</script>
+</body>
+</html>
